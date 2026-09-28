@@ -1,0 +1,180 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  username         String   @unique
+  password         String
+  role             String   @default("USER")
+  stripeCustomerId String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  showFurigana     Boolean @default(true)
+  autoplayAudio    Boolean @default(false)
+  dailyReviewLimit Int     @default(50)
+  reviewOrder      String  @default("due")
+  sentenceSource   String  @default("all")
+  accent           String  @default("momiji")
+  theme            String  @default("ink")
+  bunproToken      String?
+
+  displayName       String?
+  bio               String?
+  avatarEmoji       String  @default("🌸")
+  profilePublic     Boolean @default(true)
+  showOnLeaderboard Boolean @default(true)
+
+  currentStreak Int     @default(0)
+  longestStreak Int     @default(0)
+  lastStudyDay  String?
+
+  studyItems   StudyItem[]
+  reviews      Review[]
+  subscription Subscription?
+  badges       UserBadge[]
+  activity     DailyActivity[]
+
+  @@map("users")
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  status               String    @default("inactive")
+  plan                 String    @default("pro")
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model GrammarPoint {
+  id           String  @id @default(cuid())
+  order        Int     @unique
+  bunproId     Int?
+  title        String
+  slug         String  @unique
+  meaning      String
+  structure    String?
+  jlptLevel    Int
+  lesson       Int?
+  lessonOrder  Int?
+  explanation  String
+  caution      String?
+  nuance       String?
+
+  explanationMine String?
+  cautionMine     String?
+  nuanceMine      String?
+  partOfSpeech String?
+  wordType     String?
+  register     String?
+  relatedGrammar String?
+  bunproUrl    String?
+
+  examples   Example[]
+  studyItems StudyItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([jlptLevel])
+  @@map("grammar_points")
+}
+
+model Example {
+  id       String  @id @default(cuid())
+  japanese String
+  cloze    String?
+  answer   String?
+  reading  String?
+  english  String
+  audio    String?
+  order    Int     @default(0)
+  source   String  @default("bunpro")
+  verified Boolean @default(true)
+
+  grammarPoint   GrammarPoint @relation(fields: [grammarPointId], references: [id], onDelete: Cascade)
+  grammarPointId String
+
+  @@index([grammarPointId])
+  @@index([source])
+  @@map("examples")
+}
+
+model StudyItem {
+  id             String   @id @default(cuid())
+  userId         String
+  grammarPointId String
+  easeFactor     Float    @default(2.5)
+  interval       Int      @default(1)
+  repetitions    Int      @default(0)
+  nextReview     DateTime @default(now())
+  streak         Int      @default(0)
+  totalReviews   Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grammarPoint GrammarPoint @relation(fields: [grammarPointId], references: [id], onDelete: Cascade)
+  reviews      Review[]
+
+  @@unique([userId, grammarPointId])
+  @@map("study_items")
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  userId      String
+  studyItemId String
+  score       Int
+  exampleId   String?
+  reviewedAt  DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studyItem StudyItem @relation(fields: [studyItemId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+  @@map("user_badges")
+}
+
+model DailyActivity {
+  id      String @id @default(cuid())
+  userId  String
+  day     String
+  reviews Int    @default(0)
+  correct Int    @default(0)
+  learned Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@index([userId, day])
+  @@map("daily_activity")
+}
